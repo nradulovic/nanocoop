@@ -149,7 +149,11 @@ static inline bool bitmap_is_empty(void)
 nc_task * nc_task_create(nc_task_fn * fn, void * stack, uint8_t priority)
 {
     uint8_t                     itr;
-    nc_task *                   new_task = NULL;
+    nc_isr_lock                 isr_context;
+    nc_task *                   new_task;
+
+    new_task = NULL;
+    isr_context = nc_isr_save_lock();
 
     for (itr = 0; itr < CONFIG_NUM_OF_NC_TASKS; itr++) {   /* Find empty slot */
         if (g_tasks[itr].next == NULL) {
@@ -164,6 +168,7 @@ nc_task * nc_task_create(nc_task_fn * fn, void * stack, uint8_t priority)
             break;
         }
     }
+    nc_isr_unlock(isr_context);
 
     return (new_task);
 }
@@ -179,7 +184,7 @@ void nc_task_destroy(nc_task * task)
     if (task->ref != 0u) {                           /* Is this task running? */
 
         if (task->next == task) {           /* Is this the last task in list? */
-            uint_fast8_t            priority;
+            uint_fast8_t        priority;
 
             priority = task->priority;
             g_ready[priority] = NULL;            /* Mark this level as unused */
@@ -234,8 +239,10 @@ nc_task * nc_task_get_current(void)
 
 nc_task_state nc_task_get_state(nc_task * task)
 {
-    if (task->ref != 0u) {
-        return (NC_STATE_RUNNING);
+    if (task == nc_task_get_current()) {
+        return (NC_STATE_RUNNING);    
+    } else if (task->ref != 0u) {
+        return (NC_STATE_READY);
     } else {
         return (NC_STATE_IDLE);
     }

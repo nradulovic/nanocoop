@@ -45,8 +45,9 @@ extern "C" {
  */
 enum nc_task_state
 {
-    NC_STATE_IDLE,                          /**<@brief Task is not execting   */
-    NC_STATE_RUNNING                        /**<@brief Task is running        */
+    NC_STATE_IDLE,                          /**<@brief Not executing          */
+    NC_STATE_READY,                         /**<@brief Ready for execution    */
+    NC_STATE_RUNNING                        /**<@brief Executing              */
 };
 
 /**@brief       Task execution state type
