@@ -176,15 +176,18 @@ void nc_task_destroy(nc_task * task)
 
     isr_context = nc_isr_save_lock();
 
-    if (task->next == task) {               /* Is this the last task in list? */
-        uint_fast8_t            priority;
+    if (task->ref != 0u) {                           /* Is this task running? */
 
-        priority = task->priority;
-        g_ready[priority] = NULL;                /* Mark this level as unused */
-        bitmap_clear(priority);
-    } else {
-        task->next->prev = task->prev;
-        task->prev->next = task->next;
+        if (task->next == task) {           /* Is this the last task in list? */
+            uint_fast8_t            priority;
+
+            priority = task->priority;
+            g_ready[priority] = NULL;            /* Mark this level as unused */
+            bitmap_clear(priority);
+        } else {
+            task->next->prev = task->prev;
+            task->prev->next = task->next;
+        }
     }
     task->next = NULL;                               /* Mark the task as free */
     nc_isr_unlock(isr_context);
@@ -200,7 +203,7 @@ void nc_task_ready(nc_task * task)
     task->ref++;
 
     if (task->ref == 1u) { /* Is this the first time we are marking it ready? */
-                           /* Then insert it in ready queue.                  */
+                                             /* Then insert it in ready queue */
         uint_fast8_t            priority;
 
         priority  = task->priority;
