@@ -22,14 +22,56 @@ medium sized micro-controllers.
 All configuration is static. Configuration options are available in 
 `source/ncconfig.h` header file. 
 
-Edit the `CONFIG_NUM_OF_NC_TASKS` configuration option to specify the maximum 
+Configuration option `CONFIG_NUM_OF_NC_TASKS` is used to specify the maximum 
 amount of concurrent tasks in the system. Note that tasks can be deleted, too.
 So if you are not executing all tasks at the same time you can set this number
 to the maximum number of active tasks in order to save RAM memory.
 
-To specify the number of priority levels edit the `CONFIG_NUM_OF_PRIO_LEVELS`
-configuration option. It is preferred that this configuration option is set to
-maximum value of 8 on low end 8-bit micro-controllers.
+Configuration option `CONFIG_NUM_OF_PRIO_LEVELS` is used to specify the number 
+of task priority levels. It is preferred that this configuration option is held 
+below or equal to 8 on low end 8-bit micro-controllers. Higher number of levels 
+may impact the execution performance on low end 8-bit micro-controllers.
+
+## Tasks
+A task is a function with the following prototype: `void function(void * stack)`.
+Each task must return after some defined time. By returning the task leaves the
+CPU time for other tasks to execute. Ideally, tasks are organized as finite 
+state machines which by design are always returning.
+
+During the task execution interrupts are allowed. 
+
+The argument to task function is always the stack pointer which was given during 
+the task creation process. This gives the ability to write parametrized tasks 
+functions.
+
+### Creating
+A new task is created using `nc_task_create()` function. 
+
+1. First parameter is pointer to task function.
+2. Second parameter is pointer to task stack space. This parameter is optional 
+and it is needed when writing parametrized task functions.
+3. Third parameter is task priority. The higher the number the higher the 
+importance of the task. The maximum priority level is defined by 
+`CONFIG_NUM_OF_PRIO_LEVELS` configuration option.
+
+After the task is created the task is in `NC_STATE_IDLE` state. To put the task
+in ready/running state use `nc_task_ready()` function.
+
+### Running
+The tasks are invoked by scheduler. Scheduler function `nc_schedule()` must be
+periodically called. The scheduler will evaluate all tasks that are ready and
+schedule them for execution. When there are no tasks ready for execution the 
+scheduler function will return.
+
+Tasks can be created and destroyed during the scheduler execution.
+
+### Destroying
+A task is destroyed by using `nc_task_destroy()` function. If the task is ready
+for execution or is currently executing then it will be removed from ready 
+queue. When the task is destroyed its data structure is returned to free task 
+pool.
+
+## Building
 
 ## TODO list
 
