@@ -294,9 +294,9 @@ void nc_schedule(void)
         uint_fast8_t            priority;
 
         priority = bitmap_highest();        /* Get the highest priority level */
-        new_task = g_ready[priority];           /* Fetch task from this level */
-        g_ready[priority] = new_task->next;    /* Round-robin for other tasks */
+        new_task          = g_ready[priority];          /* Fetch the new task */
         g_current         = new_task;
+        g_ready[priority] = new_task->next;    /* Round-robin for other tasks */
         nc_isr_unlock(isr_context);
         new_task->fn(new_task->stack);                    /* Execute the task */
         isr_context = nc_isr_save_lock();
