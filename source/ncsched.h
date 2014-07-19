@@ -130,7 +130,7 @@ nc_task_state   nc_task_get_state(nc_task * task);
 
 
 /**@brief       Do the scheduling and execute the tasks.
- * @details     This function must be pe
+ * @details     This function must be continiosly invoked.
  */
 void            nc_schedule(void);
 
