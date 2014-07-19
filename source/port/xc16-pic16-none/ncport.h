@@ -30,12 +30,8 @@
 /*=========================================================  INCLUDE FILES  ==*/
 
 #include <stdint.h>
-#include "ncconfig.h"
 
 /*===============================================================  MACRO's  ==*/
-
-#define NC_C_ROM
-
 /*------------------------------------------------------  C++ extern begin  --*/
 #ifdef __cplusplus
 extern "C" {
@@ -65,7 +61,7 @@ static inline void nc_isr_unlock(nc_isr_lock lock)
 
 static inline uint8_t nc_exp2_8(uint_fast8_t value)
 {
-    extern const NC_C_ROM uint8_t g_exp2_lookup_8[8];
+    extern const uint8_t g_exp2_lookup_8[8];
 
     return (g_exp2_lookup_8[value]);
 }
@@ -74,7 +70,7 @@ static inline uint8_t nc_exp2_8(uint_fast8_t value)
 
 static inline uint16_t nc_exp2_16(uint_fast8_t value)
 {
-    extern const NC_C_ROM uint16_t g_exp2_lookup_16[16];
+    extern const uint16_t g_exp2_lookup_16[16];
 
     return (g_exp2_lookup_16[value]);
 }
@@ -83,7 +79,7 @@ static inline uint16_t nc_exp2_16(uint_fast8_t value)
 
 static inline uint32_t nc_exp2_32(uint_fast8_t value)
 {
-    extern const NC_C_ROM uint32_t g_exp2_lookup_32[32];
+    extern const uint32_t g_exp2_lookup_32[32];
 
     return (g_exp2_lookup_32[value]);
 }

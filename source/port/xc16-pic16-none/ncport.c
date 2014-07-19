@@ -35,13 +35,13 @@
 /*=======================================================  LOCAL VARIABLES  ==*/
 /*======================================================  GLOBAL VARIABLES  ==*/
 
-const NC_C_ROM uint8_t g_exp2_lookup_8[8] =
+const uint8_t g_exp2_lookup_8[8] =
 {
     (1u <<  0), (1u <<  1), (1u <<  2), (1u <<  3),
     (1u <<  4), (1u <<  5), (1u <<  6), (1u <<  7)
 };
 
-const NC_C_ROM uint16_t g_exp2_lookup_16[16] =
+const uint16_t g_exp2_lookup_16[16] =
 {
     (1u <<  0), (1u <<  1), (1u <<  2), (1u <<  3),
     (1u <<  4), (1u <<  5), (1u <<  6), (1u <<  7),
@@ -49,7 +49,7 @@ const NC_C_ROM uint16_t g_exp2_lookup_16[16] =
     (1u << 12), (1u << 13), (1u << 14), (1u << 15)
 };
 
-const NC_C_ROM uint32_t g_exp2_lookup_32[32] =
+const uint32_t g_exp2_lookup_32[32] =
 {
     (1u <<  0), (1u <<  1), (1u <<  2), (1u <<  3),
     (1u <<  4), (1u <<  5), (1u <<  6), (1u <<  7),
