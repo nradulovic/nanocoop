@@ -24,8 +24,8 @@ All configuration is static. Configuration options are available in
 
 Configuration option `CONFIG_NUM_OF_NC_TASKS` is used to specify the maximum 
 amount of concurrent tasks in the system. Note that tasks can be deleted, too.
-So if you are not executing all tasks at the same time you can set this number
-to the maximum number of active tasks in order to save RAM memory.
+So if the system is not executing all tasks at the same time then this number
+can be set to the maximum number of active tasks in order to save RAM memory.
 
 Configuration option `CONFIG_NUM_OF_PRIO_LEVELS` is used to specify the number 
 of task priority levels. It is preferred that this configuration option is held 
@@ -33,7 +33,10 @@ below or equal to 8 on low end 8-bit micro-controllers. Higher number of levels
 may impact the execution performance on low end 8-bit micro-controllers.
 
 ## Tasks
-A task is a function with the following prototype: `void function(void * stack)`.
+A task is a function with the following prototype: 
+
+        void function(void * stack)
+    
 Each task must return after some defined time. By returning the task leaves the
 CPU time for other tasks to execute. Ideally, tasks are organized as finite 
 state machines which by design are always returning.
@@ -45,7 +48,8 @@ the task creation process. This gives the ability to write parametrized tasks
 functions.
 
 ### Creating
-A new task is created using `nc_task_create()` function. 
+A new task is created using `nc_task_create()` function. The function searches
+through free task pool to obtain a task data structure.
 
 1. First parameter is pointer to task function.
 2. Second parameter is pointer to task stack space. This parameter is optional 
