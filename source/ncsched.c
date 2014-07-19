@@ -79,6 +79,11 @@ static inline uint_fast8_t bitmap_highest(void);
 
 
 
+/**@brief       Is the bitmap empty?
+ * @return
+ * @retval      true  - no bit is set
+ * @retval      false - at least one bit is set
+ */
 static inline bool bitmap_is_empty(void);
 
 /*=======================================================  LOCAL VARIABLES  ==*/
@@ -94,6 +99,7 @@ static struct nc_bitmap g_bitmap;
 /*======================================================  GLOBAL VARIABLES  ==*/
 /*============================================  LOCAL FUNCTION DEFINITIONS  ==*/
 
+
 static inline void bitmap_set(uint_fast8_t priority)
 {
 #if (CONFIG_NUM_OF_PRIO_LEVELS > 16)
@@ -101,7 +107,7 @@ static inline void bitmap_set(uint_fast8_t priority)
 #elif (CONFIG_NUM_OF_PRIO_LEVELS > 8)
     g_bitmap.level |= nc_power_16(priority);
 #else
-    g_bitmap.level |= nc_power_8(priority);
+    g_bitmap.level |= nc_exp2_8(priority);
 #endif
 }
 
@@ -114,7 +120,7 @@ static inline void bitmap_clear(uint_fast8_t priority)
 #elif (CONFIG_NUM_OF_PRIO_LEVELS > 8)
     g_bitmap.level &= (uint16_t)~nc_power_16(priority);
 #else
-    g_bitmap.level &= (uint8_t)~nc_power_8(priority);
+    g_bitmap.level &= (uint8_t)~nc_exp2_8(priority);
 #endif
 }
 
@@ -123,11 +129,11 @@ static inline void bitmap_clear(uint_fast8_t priority)
 static inline uint_fast8_t bitmap_highest(void)
 {
 #if (CONFIG_NUM_OF_PRIO_LEVELS > 16)
-    return (nc_fls32(g_bitmap.level));
+    return (nc_log2_32(g_bitmap.level));
 #elif (CONFIG_NUM_OF_PRIO_LEVELS > 8)
-    return (nc_fls16(g_bitmap.level));
+    return (nc_log2_16(g_bitmap.level));
 #else
-    return (nc_fls8(g_bitmap.level));
+    return (nc_log2_8(g_bitmap.level));
 #endif
 }
 
@@ -152,7 +158,7 @@ nc_task * nc_task_create(nc_task_fn * fn, void * stack, uint8_t priority)
     nc_isr_lock                 isr_context;
     nc_task *                   new_task;
 
-    new_task = NULL;
+    new_task    = NULL;
     isr_context = nc_isr_save_lock();
 
     for (itr = 0; itr < CONFIG_NUM_OF_NC_TASKS; itr++) {   /* Find empty slot */
@@ -240,7 +246,7 @@ nc_task * nc_task_get_current(void)
 nc_task_state nc_task_get_state(nc_task * task)
 {
     if (task == nc_task_get_current()) {
-        return (NC_STATE_RUNNING);    
+        return (NC_STATE_RUNNING);
     } else if (task->ref != 0u) {
         return (NC_STATE_READY);
     } else {

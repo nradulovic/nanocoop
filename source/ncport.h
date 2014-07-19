@@ -63,42 +63,43 @@ static inline void nc_isr_unlock(nc_isr_lock lock)
 
 
 
-static inline uint8_t nc_power_8(uint_fast8_t value)
+static inline uint8_t nc_exp2_8(uint_fast8_t value)
 {
-    extern const NC_C_ROM uint8_t g_power_of_2_lookup_8[8];
+    extern const NC_C_ROM uint8_t g_exp2_lookup_8[8];
 
-    return (g_power_of_2_lookup_8[value]);
+    return (g_exp2_lookup_8[value]);
 }
 
 
 
-static inline uint16_t nc_power_16(uint_fast8_t value)
+static inline uint16_t nc_exp2_16(uint_fast8_t value)
 {
-    extern const NC_C_ROM uint16_t g_power_of_2_lookup_16[16];
+    extern const NC_C_ROM uint16_t g_exp2_lookup_16[16];
 
-    return (g_power_of_2_lookup_16[value]);
+    return (g_exp2_lookup_16[value]);
 }
 
 
 
-static inline uint32_t nc_power_32(uint_fast8_t value)
+static inline uint32_t nc_exp2_32(uint_fast8_t value)
 {
-    extern const NC_C_ROM uint32_t g_power_of_2_lookup_32[32];
+    extern const NC_C_ROM uint32_t g_exp2_lookup_32[32];
 
-    return (g_power_of_2_lookup_32[value]);
+    return (g_exp2_lookup_32[value]);
 }
 
 
 
-uint_fast8_t nc_fls8(uint_fast8_t val);
+uint_fast8_t nc_log2_8(uint_fast8_t value);
 
 
 
-uint_fast8_t nc_fls16(uint_fast16_t val);
+uint_fast8_t nc_log2_16(uint_fast16_t value);
 
 
 
-uint_fast8_t nc_fls32(uint_fast32_t val);
+uint_fast8_t nc_log2_32(uint_fast32_t value);
+
 
 /*================================*//** @cond *//*==  CONFIGURATION ERRORS  ==*/
 /** @endcond *//**@} *//**@} *//***********************************************

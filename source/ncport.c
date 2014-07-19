@@ -35,13 +35,13 @@
 /*=======================================================  LOCAL VARIABLES  ==*/
 /*======================================================  GLOBAL VARIABLES  ==*/
 
-const NC_C_ROM uint8_t g_power_of_2_lookup_8[8] =
+const NC_C_ROM uint8_t g_exp2_lookup_8[8] =
 {
     (1u <<  0), (1u <<  1), (1u <<  2), (1u <<  3),
     (1u <<  4), (1u <<  5), (1u <<  6), (1u <<  7)
 };
 
-const NC_C_ROM uint16_t g_power_of_2_lookup_16[16] =
+const NC_C_ROM uint16_t g_exp2_lookup_16[16] =
 {
     (1u <<  0), (1u <<  1), (1u <<  2), (1u <<  3),
     (1u <<  4), (1u <<  5), (1u <<  6), (1u <<  7),
@@ -49,7 +49,7 @@ const NC_C_ROM uint16_t g_power_of_2_lookup_16[16] =
     (1u << 12), (1u << 13), (1u << 14), (1u << 15)
 };
 
-const NC_C_ROM uint32_t g_power_of_2_lookup_32[32] =
+const NC_C_ROM uint32_t g_exp2_lookup_32[32] =
 {
     (1u <<  0), (1u <<  1), (1u <<  2), (1u <<  3),
     (1u <<  4), (1u <<  5), (1u <<  6), (1u <<  7),
@@ -66,83 +66,7 @@ const NC_C_ROM uint32_t g_power_of_2_lookup_32[32] =
 /*====================================  GLOBAL PUBLIC FUNCTION DEFINITIONS  ==*/
 
 
-uint_fast8_t nc_fls32(uint_fast32_t val)
-{
-    uint_fast32_t               tmp;
-    uint_fast8_t                ret;
-
-    ret = 0u;
-    tmp = val >> 16;
-
-    if (tmp != 0u) {
-        val = tmp;
-        ret = 16u;
-    }
-    tmp = val >> 8;
-
-    if (tmp != 0u) {
-        val = tmp;
-        ret += 8u;
-    }
-    tmp = val >> 4;
-
-    if (tmp != 0u) {
-        val = tmp;
-        ret += 4u;
-    }
-    tmp = val >> 2;
-
-    if (tmp != 0u) {
-        val = tmp;
-        ret += 2u;
-    }
-    tmp = val >> 1;
-
-    if (tmp != 0u) {
-        ret += 1u;
-    }
-
-    return (ret);
-}
-
-
-
-uint_fast8_t nc_fls16(uint_fast16_t val)
-{
-    uint_fast16_t               tmp;
-    uint_fast8_t                ret;
-
-    ret = 0u;
-    tmp = val >> 8;
-
-    if (tmp != 0u) {
-        val = tmp;
-        ret += 8u;
-    }
-    tmp = val >> 4;
-
-    if (tmp != 0u) {
-        val = tmp;
-        ret += 4u;
-    }
-    tmp = val >> 2;
-
-    if (tmp != 0u) {
-        val = tmp;
-        ret += 2u;
-    }
-    tmp = val >> 1;
-
-    if (tmp != 0u) {
-        ret += 1u;
-    }
-
-    return (ret);
-}
-
-
-
-uint_fast8_t nc_fls8(uint_fast8_t val)
+uint_fast8_t nc_log2_8(uint_fast8_t val)
 {
     uint_fast8_t                tmp;
     uint_fast8_t                ret;
@@ -151,13 +75,13 @@ uint_fast8_t nc_fls8(uint_fast8_t val)
     tmp = val >> 4;
 
     if (tmp != 0u) {
-        val = tmp;
+        val  = tmp;
         ret += 4u;
     }
     tmp = val >> 2;
 
     if (tmp != 0u) {
-        val = tmp;
+        val  = tmp;
         ret += 2u;
     }
     tmp = val >> 1;
@@ -168,6 +92,84 @@ uint_fast8_t nc_fls8(uint_fast8_t val)
 
     return (ret);
 }
+
+
+
+uint_fast8_t nc_log2_16(uint_fast16_t val)
+{
+    uint_fast16_t               tmp;
+    uint_fast8_t                ret;
+
+    ret = 0u;
+    tmp = val >> 8;
+
+    if (tmp != 0u) {
+        val  = tmp;
+        ret += 8u;
+    }
+    tmp = val >> 4;
+
+    if (tmp != 0u) {
+        val  = tmp;
+        ret += 4u;
+    }
+    tmp = val >> 2;
+
+    if (tmp != 0u) {
+        val  = tmp;
+        ret += 2u;
+    }
+    tmp = val >> 1;
+
+    if (tmp != 0u) {
+        ret += 1u;
+    }
+
+    return (ret);
+}
+
+
+
+uint_fast8_t nc_log2_32(uint_fast32_t val)
+{
+    uint_fast32_t               tmp;
+    uint_fast8_t                ret;
+
+    ret = 0u;
+    tmp = val >> 16;
+
+    if (tmp != 0u) {
+        val  = tmp;
+        ret  = 16u;
+    }
+    tmp = val >> 8;
+
+    if (tmp != 0u) {
+        val  = tmp;
+        ret += 8u;
+    }
+    tmp = val >> 4;
+
+    if (tmp != 0u) {
+        val  = tmp;
+        ret += 4u;
+    }
+    tmp = val >> 2;
+
+    if (tmp != 0u) {
+        val  = tmp;
+        ret += 2u;
+    }
+    tmp = val >> 1;
+
+    if (tmp != 0u) {
+        ret += 1u;
+    }
+
+    return (ret);
+}
+
+
 
 /*================================*//** @cond *//*==  CONFIGURATION ERRORS  ==*/
 /** @endcond *//** @} *//******************************************************
