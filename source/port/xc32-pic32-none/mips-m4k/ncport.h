@@ -30,11 +30,11 @@
 /*=========================================================  INCLUDE FILES  ==*/
 
 #include <stdint.h>
+#include <xc.h>
 
 /*===============================================================  MACRO's  ==*/
 
-#define CONFIG_ISR_PRIO_LEVEL           0
-#define CONFIG_ISR_PRIO_BITS            4
+#define CONFIG_ISR_PRIO_LEVEL           6
 
 #define NCPU_DATA_WIDTH                 32
 
@@ -45,57 +45,53 @@ extern "C" {
 
 /*============================================================  DATA TYPES  ==*/
 
-typedef unsigned int nc_isr_lock;
+typedef unsigned char nc_isr_lock;
 
-typedef unsigned int nc_cpu_reg;
+typedef unsigned char nc_cpu_reg;
 
 /*======================================================  GLOBAL VARIABLES  ==*/
 /*===================================================  FUNCTION PROTOTYPES  ==*/
 
-
-static inline void nc_isr_lock_save(nc_isr_lock * lock)
+static inline __attribute__((nomips16)) void nc_isr_lock_save(
+    nc_isr_lock *               lock)
 {
-#if (CONFIG_ISR_PRIO_LEVEL != 0)
-    uint32_t                    new;
+#if (CONFIG_ISR_PRIO_LEVEL == 0)
+    nc_isr_lock                 status;
 
-    new = (((CONFIG_ISR_PRIO_LEVEL) << (8u - CONFIG_ISR_PRIO_BITS)) & 0xfful);
-
-    __asm __volatile__ (
-        "@  nc_isr_lock_save                                \n"
-        "   mrs     %0, basepri                             \n"
-        "   msr     basepri, %1                             \n"
-        : "=&r"(*lock)
-        : "r"(new));
+    __asm __volatile__(
+        " di %0                                             \n"
+        : "=r"(status));
+    *lock = status;
 #else
-    uint32_t                    new;
+    nc_isr_lock                 status;
 
-    new = 1u;
-
-    __asm __volatile__ (
-        "@  nc_isr_lock_save                                \n"
-        "   mrs     %0, primask                             \n"
-        "   msr    primask, %1                              \n"
-        : "=&r"(*lock)
-        : "r"(new));
+    status  = _CP0_GET_STATUS();
+    *lock   = status;
+    status &= ~_CP0_STATUS_IPL_MASK;
+    _CP0_SET_STATUS(status);
 #endif
 }
 
 
-
-static inline void nc_isr_unlock(nc_isr_lock * lock)
+static inline void __attribute__((nomips16)) nc_isr_unlock(
+    nc_isr_lock *               lock)
 {
-#if (CONFIG_ISR_PRIO_LEVEL != 0)
-    __asm __volatile__ (
-        "@  nc_isr_unlock                                   \n"
-        "   msr    basepri, %0                              \n"
-        :
-        : "r"(*lock));
+#if (CONFIG_INTR_MAX_ISR_PRIO == 0)
+
+    if (*lock == 0u) {
+        __asm __volatile__(
+            " di \n");
+    } else {
+        __asm __volatile__(
+            " ei \n");
+    }
 #else
-    __asm __volatile__ (
-        "@  nc_isr_unlock                                   \n"
-        "   msr    primask, %0                              \n"
-        :
-        : "r"(*lock));
+    nc_isr_lock                 status;
+
+    status  = _CP0_GET_STATUS();
+    status &= ~_CP0_STATUS_IPL_MASK;
+    status |= *lock & _CP0_STATUS_IPL_MASK;
+    _CP0_SET_STATUS(status);
 #endif
 }
 
@@ -103,22 +99,18 @@ static inline void nc_isr_unlock(nc_isr_lock * lock)
 
 static inline nc_cpu_reg nc_exp2(uint_fast8_t value)
 {
-    return (0x1u << value);
+    extern const nc_cpu_reg g_exp2_lookup[8];
+
+    return (g_exp2_lookup[value]);
 }
 
 
 
 static inline uint_fast8_t nc_log2(nc_cpu_reg value)
 {
-    uint_fast8_t                clz;
+    extern const uint_fast8_t g_log2_lookup[256];
 
-    __asm__ __volatile__ (
-        "@  nc_log                                          \n"
-        "   clz    %0, %1                                   \n"
-        : "=r"(clz)
-        : "r"(value));
-
-    return (31u - clz);
+    return (g_log2_lookup[value]);
 }
 
 /*================================*//** @cond *//*==  CONFIGURATION ERRORS  ==*/

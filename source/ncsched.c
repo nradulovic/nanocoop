@@ -35,6 +35,22 @@
 #include "ncport.h"
 
 /*=========================================================  LOCAL MACRO's  ==*/
+
+#define LOG2_8(x)                                                               \
+    ((x) <   2u ? 0u :                                                          \
+     ((x) <   4u ? 1u :                                                         \
+      ((x) <   8u ? 2u :                                                        \
+       ((x) <  16u ? 3u :                                                       \
+        ((x) <  32u ? 4u :                                                      \
+         ((x) <  64u ? 5u :                                                     \
+          ((x) < 128u ? 6u : 7u)))))))
+
+#define DIVISION_ROUNDUP(numerator, denominator)                                \
+    (((numerator) + (denominator) - 1u) / (denominator))
+
+#define BITMAP_GROUPS                                                           \
+    DIVISION_ROUNDUP(CONFIG_NUM_OF_PRIO_LEVELS, NCPU_DATA_WIDTH)
+
 /*======================================================  LOCAL DATA TYPES  ==*/
 
 struct nc_task
@@ -49,13 +65,10 @@ struct nc_task
 
 struct nc_bitmap
 {
-#if (CONFIG_NUM_OF_PRIO_LEVELS > 16)
-    uint32_t            level;
-#elif (CONFIG_NUM_OF_PRIO_LEVELS > 8)
-    uint16_t            level;
-#else
-    uint8_t             level;
+#if     (CONFIG_NUM_OF_PRIO_LEVELS > NCPU_DATA_WIDTH)
+    nc_cpu_reg          group;
 #endif
+    nc_cpu_reg          level[BITMAP_GROUPS];
 };
 
 /*=============================================  LOCAL FUNCTION PROTOTYPES  ==*/
@@ -63,19 +76,24 @@ struct nc_bitmap
 
 /**@brief       Set a bit corresponding to the the given priority
  */
-static inline void bitmap_set(uint_fast8_t priority);
+static inline void bitmap_set(
+    struct nc_bitmap *          bitmap,
+    uint_fast8_t                priority);
 
 
 
 /**@brief       Clear a bit corresponding to the the given priority
  */
-static inline void bitmap_clear(uint_fast8_t priority);
+static inline void bitmap_clear(
+    struct nc_bitmap *          bitmap,
+    uint_fast8_t                priority);
 
 
 
 /**@brief       Get the highest set bit priority level
  */
-static inline uint_fast8_t bitmap_highest(void);
+static inline uint_fast8_t bitmap_get_highest(
+    const struct nc_bitmap *    bitmap);
 
 
 
@@ -84,7 +102,8 @@ static inline uint_fast8_t bitmap_highest(void);
  * @retval      true  - no bit is set
  * @retval      false - at least one bit is set
  */
-static inline bool bitmap_is_empty(void);
+static inline bool bitmap_is_empty(
+    const struct nc_bitmap *    bitmap);
 
 /*=======================================================  LOCAL VARIABLES  ==*/
 
@@ -100,53 +119,89 @@ static struct nc_bitmap g_bitmap;
 /*============================================  LOCAL FUNCTION DEFINITIONS  ==*/
 
 
-static inline void bitmap_set(uint_fast8_t priority)
+static inline void bitmap_set(
+    struct nc_bitmap *          bitmap,
+    uint_fast8_t                priority)
 {
-#if (CONFIG_NUM_OF_PRIO_LEVELS > 16)
-    g_bitmap.level |= nc_power_32(priority);
-#elif (CONFIG_NUM_OF_PRIO_LEVELS > 8)
-    g_bitmap.level |= nc_power_16(priority);
+#if   (CONFIG_NUM_OF_PRIO_LEVELS > NCPU_DATA_WIDTH)
+    uint_fast8_t                group;
+    uint_fast8_t                index;
+
+    index = priority &
+        ((uint_fast8_t)~0u >> (sizeof(priority) * 8u - LOG2_8(NCPU_DATA_WIDTH)));
+    group = priority >> LOG2_8(NCPU_DATA_WIDTH);
+    bitmap->group        |= nc_exp2(group);
+    bitmap->level[group] |= nc_exp2(index);
 #else
-    g_bitmap.level |= nc_exp2_8(priority);
+    bitmap->level[0]     |= nc_exp2(priority);
 #endif
 }
 
 
 
-static inline void bitmap_clear(uint_fast8_t priority)
+static inline void bitmap_clear(
+    struct nc_bitmap *          bitmap,
+    uint_fast8_t                priority)
 {
-#if (CONFIG_NUM_OF_PRIO_LEVELS > 16)
-    g_bitmap.level &= (uint32_t)~nc_power_32(priority);
-#elif (CONFIG_NUM_OF_PRIO_LEVELS > 8)
-    g_bitmap.level &= (uint16_t)~nc_power_16(priority);
+#if   (CONFIG_NUM_OF_PRIO_LEVELS > NCPU_DATA_WIDTH)
+    uint_fast8_t                group;
+    uint_fast8_t                index;
+
+    index = priority &
+        ((uint_fast8_t)~0u >> (sizeof(priority) * 8u - LOG2_8(NCPU_DATA_WIDTH)));
+    group = priority >> LOG2_8(NCPU_DATA_WIDTH);
+    bitmap->level[group] &= (nc_cpu_reg)~nc_exp2(index);
+
+    if (bitmap->level[group] == 0u) {                                           /* If this is the last bit cleared in */
+        bitmap->group &= (nc_cpu_reg)~nc_exp2(group);                           /* this level group then clear group  */
+    }                                                                           /* bit indicator, too.                */
 #else
-    g_bitmap.level &= (uint8_t)~nc_exp2_8(priority);
+    bitmap->level[0]  &= (nc_cpu_reg)~nc_exp2(priority);
 #endif
 }
 
 
 
-static inline uint_fast8_t bitmap_highest(void)
+static inline uint_fast8_t bitmap_get_highest(
+    const struct nc_bitmap *    bitmap)
 {
-#if (CONFIG_NUM_OF_PRIO_LEVELS > 16)
-    return (nc_log2_32(g_bitmap.level));
-#elif (CONFIG_NUM_OF_PRIO_LEVELS > 8)
-    return (nc_log2_16(g_bitmap.level));
+#if   (CONFIG_NUM_OF_PRIO_LEVELS > NCPU_DATA_WIDTH)
+    uint_fast8_t                group;
+    uint_fast8_t                index;
+
+    group = nc_log2(bitmap->group);
+    index = nc_log2(bitmap->level[group]);
+
+    return ((uint_fast8_t)((group << LOG2_8(NCPU_DATA_WIDTH)) | index));
 #else
-    return (nc_log2_8(g_bitmap.level));
+    uint_fast8_t                index;
+
+    index = nc_log2(bitmap->level[0]);
+
+    return (index);
 #endif
 }
 
 
 
-static inline bool bitmap_is_empty(void)
+static inline bool bitmap_is_empty(
+    const struct nc_bitmap *    bitmap)
 {
-    if (g_bitmap.level == 0u) {
+#if   (CONFIG_NUM_OF_PRIO_LEVELS > NCPU_DATA_WIDTH)
+    if (bitmap->group == 0u) {
         return (true);
     } else {
         return (false);
     }
+#else
+    if (bitmap->level[0] == 0u) {
+        return (true);
+    } else {
+        return (false);
+    }
+#endif
 }
+
 
 /*===================================  GLOBAL PRIVATE FUNCTION DEFINITIONS  ==*/
 /*====================================  GLOBAL PUBLIC FUNCTION DEFINITIONS  ==*/
@@ -159,7 +214,7 @@ nc_task * nc_task_create(nc_task_fn * fn, void * stack, uint8_t priority)
     nc_task *                   new_task;
 
     new_task    = NULL;
-    isr_context = nc_isr_save_lock();
+    nc_isr_lock_save(&isr_context);
 
     for (itr = 0; itr < CONFIG_NUM_OF_NC_TASKS; itr++) {   /* Find empty slot */
         if (g_tasks[itr].next == NULL) {
@@ -174,7 +229,7 @@ nc_task * nc_task_create(nc_task_fn * fn, void * stack, uint8_t priority)
             break;
         }
     }
-    nc_isr_unlock(isr_context);
+    nc_isr_unlock(&isr_context);
 
     return (new_task);
 }
@@ -185,7 +240,7 @@ void nc_task_destroy(nc_task * task)
 {
     nc_isr_lock                 isr_context;
 
-    isr_context = nc_isr_save_lock();
+    nc_isr_lock_save(&isr_context);
 
     if (task->ref != 0u) {                           /* Is this task running? */
 
@@ -194,14 +249,14 @@ void nc_task_destroy(nc_task * task)
 
             priority = task->priority;
             g_ready[priority] = NULL;            /* Mark this level as unused */
-            bitmap_clear(priority);
+            bitmap_clear(&g_bitmap, priority);
         } else {
             task->next->prev = task->prev;
             task->prev->next = task->next;
         }
     }
     task->next = NULL;                               /* Mark the task as free */
-    nc_isr_unlock(isr_context);
+    nc_isr_unlock(&isr_context);
 }
 
 
@@ -210,7 +265,7 @@ void nc_task_ready(nc_task * task)
 {
     nc_isr_lock                 isr_context;
 
-    isr_context = nc_isr_save_lock();
+    nc_isr_lock_save(&isr_context);
     task->ref++;
 
     if (task->ref == 1u) { /* Is this the first time we are marking it ready? */
@@ -221,7 +276,7 @@ void nc_task_ready(nc_task * task)
 
         if (g_ready[priority] == NULL) {   /* Is this the first task in list? */
             g_ready[priority] = task;              /* Mark this level as used */
-            bitmap_set(priority);
+            bitmap_set(&g_bitmap, priority);
         } else {
             nc_task *           sentinel = g_ready[priority];
 
@@ -231,7 +286,7 @@ void nc_task_ready(nc_task * task)
             sentinel->prev       = task;
         }
     }
-    nc_isr_unlock(isr_context);
+    nc_isr_unlock(&isr_context);
 }
 
 
@@ -261,7 +316,7 @@ void nc_task_done(void)
     struct nc_task *            current;
     nc_isr_lock                 isr_context;
 
-    isr_context = nc_isr_save_lock();
+    nc_isr_lock_save(&isr_context);
     current     = nc_task_get_current();
     current->ref--;
 
@@ -272,13 +327,13 @@ void nc_task_done(void)
 
             priority = current->priority;
             g_ready[priority] = NULL;
-            bitmap_clear(priority);
+            bitmap_clear(&g_bitmap, priority);
         } else {
             current->next->prev = current->prev;
             current->prev->next = current->next;
         }
     }
-    nc_isr_unlock(isr_context);
+    nc_isr_unlock(&isr_context);
 }
 
 
@@ -287,25 +342,30 @@ void nc_schedule(void)
 {
     nc_isr_lock                 isr_context;
 
-    isr_context = nc_isr_save_lock();
+    nc_isr_lock_save(&isr_context);
 
-    while (!bitmap_is_empty()) {               /* While there are ready tasks */
+    while (!bitmap_is_empty(&g_bitmap)) {      /* While there are ready tasks */
         struct nc_task *        new_task;
         uint_fast8_t            priority;
 
-        priority = bitmap_highest();        /* Get the highest priority level */
+        priority = bitmap_get_highest(&g_bitmap);    /* Get the highest level */
         new_task          = g_ready[priority];          /* Fetch the new task */
         g_current         = new_task;
         g_ready[priority] = new_task->next;    /* Round-robin for other tasks */
-        nc_isr_unlock(isr_context);
+        nc_isr_unlock(&isr_context);
         new_task->fn(new_task->stack);                    /* Execute the task */
-        isr_context = nc_isr_save_lock();
+        nc_isr_lock_save(&isr_context);
     }
     g_current = NULL;
-    nc_isr_unlock(isr_context);
+    nc_isr_unlock(&isr_context);
 }
 
 /*================================*//** @cond *//*==  CONFIGURATION ERRORS  ==*/
+
+#if (CONFIG_NUM_OF_PRIO_LEVELS > (NCPU_DATA_WIDTH * NCPU_DATA_WIDTH))
+# error "nanocoop: CONFIG_NUM_OF_PRIO_LEVELS is out of range, the number of priority levels is beyond hardware capability."
+#endif
+
 /** @endcond *//** @} *//******************************************************
  * END of ncsched.c
  ******************************************************************************/

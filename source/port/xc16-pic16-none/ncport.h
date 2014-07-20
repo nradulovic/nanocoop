@@ -20,21 +20,68 @@
  * e-mail  :    nenad.b.radulovic@gmail.com
  *//***********************************************************************//**
  * @file
- * @author  	Nenad Radulovic
+ * @author      Nenad Radulovic
  * @brief       Configuration
  *********************************************************************//** @{ */
 
-#ifndef NCCONFIG_H
-#define NCCONFIG_H
+#ifndef NCPORT_H
+#define NCPORT_H
 
 /*=========================================================  INCLUDE FILES  ==*/
+
+#include <stdint.h>
+
 /*===============================================================  MACRO's  ==*/
 
-#define CONFIG_NUM_OF_NC_TASKS          10
-#define CONFIG_NUM_OF_PRIO_LEVELS       32
+#define NCPU_DATA_WIDTH                 16
+
+/*------------------------------------------------------  C++ extern begin  --*/
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/*============================================================  DATA TYPES  ==*/
+
+typedef unsigned char nc_isr_lock;
+
+typedef unsigned char nc_cpu_reg;
+
+/*======================================================  GLOBAL VARIABLES  ==*/
+/*===================================================  FUNCTION PROTOTYPES  ==*/
+
+
+static inline void nc_isr_lock_save(nc_isr_lock * lock)
+{
+    (void)lock;
+}
+
+
+
+static inline void nc_isr_unlock(nc_isr_lock * lock)
+{
+    (void)lock;
+}
+
+
+
+static inline nc_cpu_reg nc_exp2(uint_fast8_t value)
+{
+    extern const nc_cpu_reg g_exp2_lookup[8];
+
+    return (g_exp2_lookup[value]);
+}
+
+
+
+static inline uint_fast8_t nc_log2(nc_cpu_reg value)
+{
+    extern const uint_fast8_t g_log2_lookup[256];
+
+    return (g_log2_lookup[value]);
+}
 
 /*================================*//** @cond *//*==  CONFIGURATION ERRORS  ==*/
-/** @endcond *//** @} *//******************************************************
- * END of ncconfig.h
+/** @endcond *//**@} *//**@} *//***********************************************
+ * END of ncport.h
  ******************************************************************************/
-#endif /* NCCONFIG_H */
+#endif /* NCPORT_H */
