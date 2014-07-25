@@ -73,7 +73,7 @@ static inline void nc_isr_lock_save(nc_isr_lock * lock)
 
     __asm __volatile__ (
         "@  nc_isr_lock_save                                \n"
-        "   mrs     %0, primask                             \n"
+        "   mrs    %0, primask                              \n"
         "   msr    primask, %1                              \n"
         : "=&r"(*lock)
         : "r"(new));
