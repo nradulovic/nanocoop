@@ -99,8 +99,7 @@ along with nanocoop.  If not, see <http://www.gnu.org/licenses/>.
 
 
 
-web site:    http://github.com/nradulovic
-
-e-mail  :    nenad.b.radulovic@gmail.com
+* web site:    http://github.com/nradulovic
+* e-mail  :    nenad.b.radulovic@gmail.com
 
 
