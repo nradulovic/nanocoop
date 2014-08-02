@@ -26,14 +26,22 @@
  * @brief       Scheduler
  *********************************************************************//** @{ */
 
-#ifndef NCSCHED_H
-#define NCSCHED_H
+#ifndef NANOCOOP_H
+#define NANOCOOP_H
 
 /*=========================================================  INCLUDE FILES  ==*/
 
 #include <stdint.h>
 
 /*===============================================================  MACRO's  ==*/
+
+/**@brief       Nanocoop version number
+ * @details     Patch version number is defined by  7 -  0 bits.
+ *              Minor version number is defined by 15 -  8 bits.
+ *              Major version number is defined by 23 - 16 bits.
+ */
+#define NC_VERSION                      0x010100
+
 /*------------------------------------------------------  C++ extern begin  --*/
 #ifdef __cplusplus
 extern "C" {
@@ -41,91 +49,106 @@ extern "C" {
 
 /*============================================================  DATA TYPES  ==*/
 
-/**@brief       Task execution state
+/**@brief       Thread execution state
  */
-enum nc_task_state
+enum nc_thread_state
 {
     NC_STATE_IDLE,                          /**<@brief Not executing          */
     NC_STATE_READY,                         /**<@brief Ready for execution    */
     NC_STATE_RUNNING                        /**<@brief Executing              */
 };
 
-/**@brief       Task execution state type
+/**@brief       Thread execution state type
  */
-typedef enum nc_task_state nc_task_state;
+typedef enum nc_thread_state nc_thread_state;
 
 /**@brief       Task function type
- * @details     Each task is executing the function with the following prototype:
+ * @details     Each thread is executing the function with the following prototype:
  *              `void function(void * stack);`
  */
-typedef void (nc_task_fn)(void *);
+typedef void (nc_thread_fn)(void *);
 
 /**@brief       Task opaque type
  */
-typedef struct nc_task nc_task;
+typedef struct nc_thread nc_thread;
 
 /*======================================================  GLOBAL VARIABLES  ==*/
 /*===================================================  FUNCTION PROTOTYPES  ==*/
 
 
-/**@brief       Create a new task
+/**@brief       Create a new thread
  * @param       fn
- *              Pointer to task function
+ *              Pointer to thread function
  * @param       stack
- *              Task stack pointer
+ *              Thread stack pointer
  * @param       priority
- *              Task priority. The higher the number higher the imporatance of
- *              the task. The priority may be in the following range:
- *              `0 <= priority < CONFIG_NUM_OF_PRIO_LEVELS`. Several tasks can
+ *              Thread priority. The higher the number higher the imporatance of
+ *              the thread. The priority may be in the following range:
+ *              `0 <= priority < CONFIG_NC_NUM_OF_PRIO_LEVELS`. Several threads can
  *              have same priority. In this case a round robin scheduling takes
  *              place.
- * @return      Opaque pointer to task structure. Use this pointer to identify
- *              the task.
- * @retval      NULL - no memory for task allocation
+ * @return      Opaque pointer to thread structure. Use this pointer to identify
+ *              the thread.
+ * @retval      NULL - no memory for thread allocation
  */
-nc_task *       nc_task_create(nc_task_fn * fn, void * stack, uint8_t priority);
+nc_thread *     nc_thread_create(
+    nc_thread_fn *              fn,
+    void *                      stack,
+    uint_fast8_t                priority);
 
 
 
-/**@brief       Destroy a task
- * @param       task
- *              Task identification opaque pointer.
+/**@brief       Destroy a thread
+ * @param       thread
+ *              Thread identification opaque pointer.
  */
-void            nc_task_destroy(nc_task * task);
+void            nc_thread_destroy(
+    nc_thread *                 thread);
 
 
 
-/**@brief       Make a task ready for execution
- * @param       task
- *              Task identification opaque pointer.
- * @details     After this call the task will enter RUNNING state.
+/**@brief       Make a thread ready for execution
+ * @param       thread
+ *              Thread identification opaque pointer.
+ * @details     After this call the thread will enter RUNNING state.
  */
-void            nc_task_ready(nc_task * task);
+void            nc_thread_ready(
+    nc_thread *                 thread);
 
 
 
-/**@brief       When a task has finished its execution it needs to call this
+/**@brief       Make a thread blocked
+ * @param       thread
+ *              Thread identification opaque pointer.
+ */
+void            nc_thread_block(
+    nc_thread *                 thread);
+
+
+
+/**@brief       When a thread has finished its execution it needs to call this
  *              function in order to transit to IDLE state.
  */
-void            nc_task_done(void);
+void            nc_thread_done(void);
 
 
 
-/**@brief       Get the currently executing task id pointer
+/**@brief       Get the currently executing thread id pointer
  */
-nc_task *       nc_task_get_current(void);
+nc_thread *     nc_thread_get_current(void);
 
 
 
-/**@brief       Get the current state of a task
- * @param       task
+/**@brief       Get the current state of a thread
+ * @param       thread
  *              Task identification opaque pointer.
- * @return      Current state of a task
- * @retval      NC_STATE_IDLE - task is not executing
- * @retval      NC_STATE_RUNNING - task is executing
+ * @return      Current state of a thread
+ * @retval      NC_STATE_IDLE - thread is not executing
+ * @retval      NC_STATE_RUNNING - thread is executing
  *
  */
-nc_task_state   nc_task_get_state(nc_task * task);
+nc_thread_state nc_thread_get_state(
+    const nc_thread *           thread);
 
 
 
@@ -141,6 +164,6 @@ void            nc_schedule(void);
 
 /*================================*//** @cond *//*==  CONFIGURATION ERRORS  ==*/
 /** @endcond *//** @} *//** @} *//*********************************************
- * END of ncsched.h
+ * END of nanocoop.h
  ******************************************************************************/
-#endif /* NCSCHED_H */
+#endif /* NANOCOOP_H */

@@ -22,12 +22,11 @@
  * @file
  * @author      Nenad Radulovic
  * @brief       Port Implementation
- * @addtogroup  port
  *********************************************************************//** @{ */
 
 /*=========================================================  INCLUDE FILES  ==*/
 
-#include "ncport.h"
+#include "nc_port.h"
 
 /*=========================================================  LOCAL MACRO's  ==*/
 /*======================================================  LOCAL DATA TYPES  ==*/
@@ -35,13 +34,13 @@
 /*=======================================================  LOCAL VARIABLES  ==*/
 /*======================================================  GLOBAL VARIABLES  ==*/
 
-const nc_cpu_reg    g_exp2_lookup[8] =
+const nc_cpu_reg                g_exp2_lookup[8] =
 {
     (1u <<  0), (1u <<  1), (1u <<  2), (1u <<  3),
     (1u <<  4), (1u <<  5), (1u <<  6), (1u <<  7)
 };
 
-const uint_fast8_t  g_log2_lookup[256] =
+const uint_fast8_t              g_log2_lookup[256] =
 {
     0u, 0u, 1u, 1u, 2u, 2u, 2u, 2u, 3u, 3u, 3u, 3u, 3u, 3u, 3u, 3u,
     4u, 4u, 4u, 4u, 4u, 4u, 4u, 4u, 4u, 4u, 4u, 4u, 4u, 4u, 4u, 4u,
@@ -66,5 +65,5 @@ const uint_fast8_t  g_log2_lookup[256] =
 /*====================================  GLOBAL PUBLIC FUNCTION DEFINITIONS  ==*/
 /*================================*//** @cond *//*==  CONFIGURATION ERRORS  ==*/
 /** @endcond *//** @} *//******************************************************
- * END of ncport.c
+ * END of nc_port.c
  ******************************************************************************/

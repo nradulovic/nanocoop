@@ -21,20 +21,21 @@
  *//***********************************************************************//**
  * @file
  * @author      Nenad Radulovic
- * @brief       Configuration
+ * @brief       Port header
  *********************************************************************//** @{ */
 
-#ifndef NCPORT_H
-#define NCPORT_H
+#ifndef NC_PORT_H
+#define NC_PORT_H
 
 /*=========================================================  INCLUDE FILES  ==*/
 
 #include <stdint.h>
-#include <semaphore.h>
 
 /*===============================================================  MACRO's  ==*/
 
-#define NCPU_DATA_WIDTH                 32
+#define NCPU_DATA_WIDTH                 8
+
+#define NCPU_DATA_REG_MAX               UINT8_MAX
 
 /*------------------------------------------------------  C++ extern begin  --*/
 #ifdef __cplusplus
@@ -43,46 +44,74 @@ extern "C" {
 
 /*============================================================  DATA TYPES  ==*/
 
-typedef sem_t        nc_isr_lock;
+typedef uint8_t                 nc_isr_lock;
 
-typedef unsigned int nc_cpu_reg;
+typedef uint8_t                 nc_cpu_reg;
 
 /*======================================================  GLOBAL VARIABLES  ==*/
 /*===================================================  FUNCTION PROTOTYPES  ==*/
 
 
-static inline void nc_isr_lock_save(nc_isr_lock * lock)
+static inline void nc_isr_lock_save(
+    nc_isr_lock *               lock)
 {
+    /* Save ISRs state into *lock variable and disable them.
+     */
     (void)lock;
 }
 
 
 
-static inline void nc_isr_unlock(nc_isr_lock * lock)
+static inline void nc_isr_unlock(
+    nc_isr_lock *               lock)
 {
+    /* Restore ISRs state from *lock variable
+     */
     (void)lock;
 }
 
 
 
-static inline nc_cpu_reg nc_exp2(uint_fast8_t value)
+static inline nc_cpu_reg nc_exp2(
+    uint_fast8_t                value)
 {
-    extern const nc_cpu_reg g_exp2_lookup[8];
+    extern const nc_cpu_reg     g_exp2_lookup[8];
 
     return (g_exp2_lookup[value]);
 }
 
 
 
-static inline uint_fast8_t nc_log2(nc_cpu_reg value)
+static inline uint_fast8_t nc_log2(
+    nc_cpu_reg                  value)
 {
-    extern const uint_fast8_t g_log2_lookup[256];
+    extern const uint_fast8_t   g_log2_lookup[256];
 
     return (g_log2_lookup[value]);
 }
 
+
+
+static inline void nc_sat_increment(
+    nc_cpu_reg *                value)
+{
+    if (*value != NCPU_DATA_REG_MAX) {
+        (*value)++;
+    }
+}
+
+
+
+static inline void nc_sat_decrement(
+    nc_cpu_reg *                value)
+{
+    if (*value != 0u) {
+        (*value)--;
+    }
+}
+
 /*================================*//** @cond *//*==  CONFIGURATION ERRORS  ==*/
 /** @endcond *//**@} *//**@} *//***********************************************
- * END of ncport.h
+ * END of nc_port.h
  ******************************************************************************/
-#endif /* NCPORT_H */
+#endif /* NC_PORT_H */

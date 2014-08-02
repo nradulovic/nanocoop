@@ -24,17 +24,18 @@
  * @brief       Configuration
  *********************************************************************//** @{ */
 
-#ifndef NCCONFIG_H
-#define NCCONFIG_H
+#ifndef NC_CONFIG_H
+#define NC_CONFIG_H
 
 /*=========================================================  INCLUDE FILES  ==*/
 /*===============================================================  MACRO's  ==*/
 
-#define CONFIG_NUM_OF_NC_TASKS          10
-#define CONFIG_NUM_OF_PRIO_LEVELS       32
+#define CONFIG_NC_NUM_OF_THREADS            10
+
+#define CONFIG_NC_NUM_OF_PRIO_LEVELS        32
 
 /*================================*//** @cond *//*==  CONFIGURATION ERRORS  ==*/
 /** @endcond *//** @} *//******************************************************
- * END of ncconfig.h
+ * END of nc_config.h
  ******************************************************************************/
-#endif /* NCCONFIG_H */
+#endif /* NC_CONFIG_H */

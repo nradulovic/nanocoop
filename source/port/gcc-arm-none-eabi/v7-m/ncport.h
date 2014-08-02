@@ -21,11 +21,11 @@
  *//***********************************************************************//**
  * @file
  * @author      Nenad Radulovic
- * @brief       Configuration
+ * @brief       Port header
  *********************************************************************//** @{ */
 
-#ifndef NCPORT_H
-#define NCPORT_H
+#ifndef NC_PORT_H
+#define NC_PORT_H
 
 /*=========================================================  INCLUDE FILES  ==*/
 
@@ -34,9 +34,12 @@
 /*===============================================================  MACRO's  ==*/
 
 #define CONFIG_ISR_PRIO_LEVEL           0
+
 #define CONFIG_ISR_PRIO_BITS            4
 
 #define NCPU_DATA_WIDTH                 32
+
+#define NCPU_DATA_REG_MAX               UINT32_MAX
 
 /*------------------------------------------------------  C++ extern begin  --*/
 #ifdef __cplusplus
@@ -45,15 +48,16 @@ extern "C" {
 
 /*============================================================  DATA TYPES  ==*/
 
-typedef unsigned int nc_isr_lock;
+typedef unsigned int            nc_isr_lock;
 
-typedef unsigned int nc_cpu_reg;
+typedef unsigned int            nc_cpu_reg;
 
 /*======================================================  GLOBAL VARIABLES  ==*/
 /*===================================================  FUNCTION PROTOTYPES  ==*/
 
 
-static inline void nc_isr_lock_save(nc_isr_lock * lock)
+static inline void nc_isr_lock_save(
+    nc_isr_lock *               lock)
 {
 #if (CONFIG_ISR_PRIO_LEVEL != 0)
     uint32_t                    new;
@@ -82,7 +86,8 @@ static inline void nc_isr_lock_save(nc_isr_lock * lock)
 
 
 
-static inline void nc_isr_unlock(nc_isr_lock * lock)
+static inline void nc_isr_unlock(
+    nc_isr_lock *               lock)
 {
 #if (CONFIG_ISR_PRIO_LEVEL != 0)
     __asm __volatile__ (
@@ -101,14 +106,16 @@ static inline void nc_isr_unlock(nc_isr_lock * lock)
 
 
 
-static inline nc_cpu_reg nc_exp2(uint_fast8_t value)
+static inline nc_cpu_reg nc_exp2(
+    uint_fast8_t                value)
 {
     return (0x1u << value);
 }
 
 
 
-static inline uint_fast8_t nc_log2(nc_cpu_reg value)
+static inline uint_fast8_t nc_log2(
+    nc_cpu_reg                  value)
 {
     uint_fast8_t                clz;
 
@@ -121,8 +128,28 @@ static inline uint_fast8_t nc_log2(nc_cpu_reg value)
     return (31u - clz);
 }
 
+
+
+static inline void nc_sat_increment(
+    nc_cpu_reg *                value)
+{
+    if (*value != NCPU_DATA_REG_MAX) {
+        (*value)++;
+    }
+}
+
+
+
+static inline void nc_sat_decrement(
+    nc_cpu_reg *                value)
+{
+    if (*value != 0u) {
+        (*value)--;
+    }
+}
+
 /*================================*//** @cond *//*==  CONFIGURATION ERRORS  ==*/
 /** @endcond *//**@} *//**@} *//***********************************************
- * END of ncport.h
+ * END of nc_port.h
  ******************************************************************************/
-#endif /* NCPORT_H */
+#endif /* NC_PORT_H */

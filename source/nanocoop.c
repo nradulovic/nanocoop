@@ -30,9 +30,9 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-#include "ncsched.h"
-#include "ncconfig.h"
-#include "ncport.h"
+#include "nanocoop.h"
+#include "nc_config.h"
+#include "nc_port.h"
 
 /*=========================================================  LOCAL MACRO's  ==*/
 
@@ -49,26 +49,26 @@
     (((numerator) + (denominator) - 1u) / (denominator))
 
 #define BITMAP_GROUPS                                                           \
-    DIVISION_ROUNDUP(CONFIG_NUM_OF_PRIO_LEVELS, NCPU_DATA_WIDTH)
+    DIVISION_ROUNDUP(CONFIG_NC_NUM_OF_PRIO_LEVELS, NCPU_DATA_WIDTH)
 
 /*======================================================  LOCAL DATA TYPES  ==*/
 
-struct nc_task
+struct nc_thread
 {
-    struct nc_task *    next;
-    struct nc_task *    prev;
-    void             (* fn)(void *);
-    void *              stack;
-    uint_fast8_t        priority;
-    uint_fast8_t        ref;
+    struct nc_thread *          next;
+    struct nc_thread *          prev;
+    void                     (* fn)(void *);
+    void *                      stack;
+    uint_fast8_t                priority;
+    nc_cpu_reg                  ref;
 };
 
 struct nc_bitmap
 {
-#if     (CONFIG_NUM_OF_PRIO_LEVELS > NCPU_DATA_WIDTH)
-    nc_cpu_reg          group;
+#if     (CONFIG_NC_NUM_OF_PRIO_LEVELS > NCPU_DATA_WIDTH)
+    nc_cpu_reg                  group;
 #endif
-    nc_cpu_reg          level[BITMAP_GROUPS];
+    nc_cpu_reg                  level[BITMAP_GROUPS];
 };
 
 /*=============================================  LOCAL FUNCTION PROTOTYPES  ==*/
@@ -107,13 +107,22 @@ static inline bool bitmap_is_empty(
 
 /*=======================================================  LOCAL VARIABLES  ==*/
 
-static struct nc_task   g_tasks[CONFIG_NUM_OF_NC_TASKS];
+/**@brief       Pool memory for task structures which are allocated through
+ *              nc_thread_create() function.
+ */
+static struct nc_thread   g_threads[CONFIG_NC_NUM_OF_THREADS];
 
-static struct nc_task * g_ready[CONFIG_NUM_OF_PRIO_LEVELS];
+/**@brief       Pointer array to ready tasks in the system
+ */
+static struct nc_thread * g_ready[CONFIG_NC_NUM_OF_PRIO_LEVELS];
 
-static struct nc_task * g_current;
+/**@brief       Pointer to the currently executed task
+ */
+static struct nc_thread * g_current;
 
-static struct nc_bitmap g_bitmap;
+/**@brief       Bitmap which allows to quickly select which ready task to run
+ */
+static struct nc_bitmap   g_bitmap;
 
 /*======================================================  GLOBAL VARIABLES  ==*/
 /*============================================  LOCAL FUNCTION DEFINITIONS  ==*/
@@ -123,7 +132,7 @@ static inline void bitmap_set(
     struct nc_bitmap *          bitmap,
     uint_fast8_t                priority)
 {
-#if   (CONFIG_NUM_OF_PRIO_LEVELS > NCPU_DATA_WIDTH)
+#if   (CONFIG_NC_NUM_OF_PRIO_LEVELS > NCPU_DATA_WIDTH)
     uint_fast8_t                group;
     uint_fast8_t                index;
 
@@ -143,7 +152,7 @@ static inline void bitmap_clear(
     struct nc_bitmap *          bitmap,
     uint_fast8_t                priority)
 {
-#if   (CONFIG_NUM_OF_PRIO_LEVELS > NCPU_DATA_WIDTH)
+#if   (CONFIG_NC_NUM_OF_PRIO_LEVELS > NCPU_DATA_WIDTH)
     uint_fast8_t                group;
     uint_fast8_t                index;
 
@@ -152,9 +161,11 @@ static inline void bitmap_clear(
     group = priority >> LOG2_8(NCPU_DATA_WIDTH);
     bitmap->level[group] &= (nc_cpu_reg)~nc_exp2(index);
 
-    if (bitmap->level[group] == 0u) {                                           /* If this is the last bit cleared in */
-        bitmap->group &= (nc_cpu_reg)~nc_exp2(group);                           /* this level group then clear group  */
-    }                                                                           /* bit indicator, too.                */
+    if (bitmap->level[group] == 0u) {   /* If this is the last bit cleared in */
+                                        /* this level group then clear group  */
+                                        /* bit indicator, too.                */
+        bitmap->group &= (nc_cpu_reg)~nc_exp2(group);
+    }
 #else
     bitmap->level[0]  &= (nc_cpu_reg)~nc_exp2(priority);
 #endif
@@ -165,7 +176,7 @@ static inline void bitmap_clear(
 static inline uint_fast8_t bitmap_get_highest(
     const struct nc_bitmap *    bitmap)
 {
-#if   (CONFIG_NUM_OF_PRIO_LEVELS > NCPU_DATA_WIDTH)
+#if   (CONFIG_NC_NUM_OF_PRIO_LEVELS > NCPU_DATA_WIDTH)
     uint_fast8_t                group;
     uint_fast8_t                index;
 
@@ -187,7 +198,7 @@ static inline uint_fast8_t bitmap_get_highest(
 static inline bool bitmap_is_empty(
     const struct nc_bitmap *    bitmap)
 {
-#if   (CONFIG_NUM_OF_PRIO_LEVELS > NCPU_DATA_WIDTH)
+#if   (CONFIG_NC_NUM_OF_PRIO_LEVELS > NCPU_DATA_WIDTH)
     if (bitmap->group == 0u) {
         return (true);
     } else {
@@ -202,88 +213,92 @@ static inline bool bitmap_is_empty(
 #endif
 }
 
-
 /*===================================  GLOBAL PRIVATE FUNCTION DEFINITIONS  ==*/
 /*====================================  GLOBAL PUBLIC FUNCTION DEFINITIONS  ==*/
 
 
-nc_task * nc_task_create(nc_task_fn * fn, void * stack, uint8_t priority)
+nc_thread * nc_thread_create(
+    nc_thread_fn *              fn,
+    void *                      stack,
+    uint_fast8_t                priority)
 {
-    uint8_t                     itr;
+    uint16_t                    itr;
     nc_isr_lock                 isr_context;
-    nc_task *                   new_task;
+    nc_thread *                 new_thread;
 
-    new_task    = NULL;
+    new_thread = NULL;
     nc_isr_lock_save(&isr_context);
 
-    for (itr = 0; itr < CONFIG_NUM_OF_NC_TASKS; itr++) {   /* Find empty slot */
-        if (g_tasks[itr].next == NULL) {
-            new_task           = &g_tasks[itr];        /* Initialize new task */
-            new_task->next     = new_task;       /* Init linked list pointers */
-            new_task->prev     = new_task;
-            new_task->fn       = fn;
-            new_task->stack    = stack;
-            new_task->priority = priority;
-            new_task->ref      = 0u;
+    for (itr = 0; itr < CONFIG_NC_NUM_OF_THREADS; itr++) {   /* Find empty slot */
+        if (g_threads[itr].next == NULL) {
+            new_thread           = &g_threads[itr];    /* Initialize new task */
+            new_thread->next     = new_thread;   /* Init linked list pointers */
+            new_thread->prev     = new_thread;
+            new_thread->fn       = fn;
+            new_thread->stack    = stack;
+            new_thread->priority = priority;
+            new_thread->ref      = 0u;
 
             break;
         }
     }
     nc_isr_unlock(&isr_context);
 
-    return (new_task);
+    return (new_thread);
 }
 
 
 
-void nc_task_destroy(nc_task * task)
+void nc_thread_destroy(
+    nc_thread *                 thread)
 {
     nc_isr_lock                 isr_context;
 
     nc_isr_lock_save(&isr_context);
 
-    if (task->ref != 0u) {                           /* Is this task running? */
+    if (thread->ref != 0u) {                       /* Is this thread running? */
 
-        if (task->next == task) {           /* Is this the last task in list? */
+        if (thread->next == thread) {     /* Is this the last thread in list? */
             uint_fast8_t        priority;
 
-            priority = task->priority;
+            priority = thread->priority;
             g_ready[priority] = NULL;            /* Mark this level as unused */
             bitmap_clear(&g_bitmap, priority);
         } else {
-            task->next->prev = task->prev;
-            task->prev->next = task->next;
+            thread->next->prev = thread->prev;
+            thread->prev->next = thread->next;
         }
     }
-    task->next = NULL;                               /* Mark the task as free */
+    thread->next = NULL;                           /* Mark the thread as free */
     nc_isr_unlock(&isr_context);
 }
 
 
 
-void nc_task_ready(nc_task * task)
+void nc_thread_ready(
+    nc_thread *                 thread)
 {
     nc_isr_lock                 isr_context;
 
     nc_isr_lock_save(&isr_context);
-    task->ref++;
+    nc_sat_increment(&thread->ref);
 
-    if (task->ref == 1u) { /* Is this the first time we are marking it ready? */
+    if (thread->ref == 1u) {       /* Is this the first time thread is ready? */
                                              /* Then insert it in ready queue */
         uint_fast8_t            priority;
 
-        priority  = task->priority;
+        priority  = thread->priority;
 
-        if (g_ready[priority] == NULL) {   /* Is this the first task in list? */
-            g_ready[priority] = task;              /* Mark this level as used */
+        if (g_ready[priority] == NULL) { /* Is this the first thread in list? */
+            g_ready[priority] = thread;            /* Mark this level as used */
             bitmap_set(&g_bitmap, priority);
         } else {
-            nc_task *           sentinel = g_ready[priority];
+            nc_thread *         sentinel = g_ready[priority];
 
-            task->next           = sentinel;
-            task->prev           = sentinel->prev;
-            sentinel->prev->next = task;
-            sentinel->prev       = task;
+            thread->next         = sentinel;
+            thread->prev         = sentinel->prev;
+            sentinel->prev->next = thread;
+            sentinel->prev       = thread;
         }
     }
     nc_isr_unlock(&isr_context);
@@ -291,49 +306,56 @@ void nc_task_ready(nc_task * task)
 
 
 
-nc_task * nc_task_get_current(void)
+void nc_thread_done(void)
+{
+    nc_thread_block(nc_thread_get_current());
+}
+
+
+
+void nc_thread_block(
+    nc_thread *                 thread)
+{
+    nc_isr_lock                 isr_context;
+
+    nc_isr_lock_save(&isr_context);
+    nc_sat_increment(&thread->ref);
+
+    if (thread->ref == 0u) {            /* Is this the last thread reference? */
+
+        if (thread->next == thread) {     /* Is this the last thread in list? */
+            uint_fast8_t        priority;
+
+            priority          = thread->priority;
+            g_ready[priority] = NULL;
+            bitmap_clear(&g_bitmap, priority);
+        } else {
+            thread->next->prev = thread->prev;
+            thread->prev->next = thread->next;
+        }
+    }
+    nc_isr_unlock(&isr_context);
+}
+
+
+
+nc_thread * nc_thread_get_current(void)
 {
     return (g_current);
 }
 
 
 
-nc_task_state nc_task_get_state(nc_task * task)
+nc_thread_state nc_thread_get_state(
+    const nc_thread *           thread)
 {
-    if (task == nc_task_get_current()) {
+    if (thread == nc_thread_get_current()) {
         return (NC_STATE_RUNNING);
-    } else if (task->ref != 0u) {
+    } else if (thread->ref != 0u) {
         return (NC_STATE_READY);
     } else {
         return (NC_STATE_IDLE);
     }
-}
-
-
-
-void nc_task_done(void)
-{
-    struct nc_task *            current;
-    nc_isr_lock                 isr_context;
-
-    nc_isr_lock_save(&isr_context);
-    current     = nc_task_get_current();
-    current->ref--;
-
-    if (current->ref == 0u) {             /* Is this the last task reference? */
-
-        if (current->next == current) {     /* Is this the last task in list? */
-            uint_fast8_t        priority;
-
-            priority = current->priority;
-            g_ready[priority] = NULL;
-            bitmap_clear(&g_bitmap, priority);
-        } else {
-            current->next->prev = current->prev;
-            current->prev->next = current->next;
-        }
-    }
-    nc_isr_unlock(&isr_context);
 }
 
 
@@ -345,24 +367,24 @@ void nc_schedule(void)
     nc_isr_lock_save(&isr_context);
 
     while (!bitmap_is_empty(&g_bitmap)) {      /* While there are ready tasks */
-        struct nc_task *        new_task;
+        struct nc_thread *      new_thread;
         uint_fast8_t            priority;
 
         priority = bitmap_get_highest(&g_bitmap);    /* Get the highest level */
-        new_task          = g_ready[priority];          /* Fetch the new task */
-        g_current         = new_task;
-        g_ready[priority] = new_task->next;    /* Round-robin for other tasks */
+        new_thread        = g_ready[priority];          /* Fetch the new task */
+        g_current         = new_thread;
+        g_ready[priority] = new_thread->next;  /* Round-robin for other tasks */
         nc_isr_unlock(&isr_context);
-        new_task->fn(new_task->stack);                    /* Execute the task */
+        new_thread->fn(new_thread->stack);              /* Execute the thread */
         nc_isr_lock_save(&isr_context);
     }
-    g_current = NULL;
+    g_current = NULL;           /* We are exiting the loop, no task is active */
     nc_isr_unlock(&isr_context);
 }
 
 /*================================*//** @cond *//*==  CONFIGURATION ERRORS  ==*/
 
-#if (CONFIG_NUM_OF_PRIO_LEVELS > (NCPU_DATA_WIDTH * NCPU_DATA_WIDTH))
+#if (CONFIG_NC_NUM_OF_PRIO_LEVELS > (NCPU_DATA_WIDTH * NCPU_DATA_WIDTH))
 # error "nanocoop: CONFIG_NUM_OF_PRIO_LEVELS is out of range, the number of priority levels is beyond hardware capability."
 #endif
 
