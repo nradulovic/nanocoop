@@ -251,26 +251,9 @@ nc_thread * nc_thread_create(
 
 void nc_thread_destroy(
     nc_thread *                 thread)
-{
-    nc_isr_lock                 isr_context;
 
-    nc_isr_lock_save(&isr_context);
-
-    if (thread->ref != 0u) {                       /* Is this thread running? */
-
-        if (thread->next == thread) {     /* Is this the last thread in list? */
-            uint_fast8_t        priority;
-
-            priority = thread->priority;
-            g_ready[priority] = NULL;            /* Mark this level as unused */
-            bitmap_clear(&g_bitmap, priority);
-        } else {
-            thread->next->prev = thread->prev;
-            thread->prev->next = thread->next;
-        }
-    }
+    nc_thread_block(thread);
     thread->next = NULL;                           /* Mark the thread as free */
-    nc_isr_unlock(&isr_context);
 }
 
 
