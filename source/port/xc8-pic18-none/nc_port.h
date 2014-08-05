@@ -38,6 +38,8 @@
 
 #define NCPU_DATA_REG_MAX               UINT8_MAX
 
+#define PORT_INTERRUPT_METHOD		1
+
 /*------------------------------------------------------  C++ extern begin  --*/
 #ifdef __cplusplus
 extern "C" {
@@ -56,8 +58,16 @@ typedef uint8_t                 nc_cpu_reg;
 static inline void nc_isr_lock_save(
     nc_isr_lock *               lock)
 {
-    *lock = INTCONbits.GIE;
-    INTCONbits.GIE = 0;
+#if (PORT_INTERRUPT_METHOD == 1)
+    *lock = INTCON;
+    INTCON &= (0x1u << 7);                         /* Turn off GIE interrupts */
+#elif (PORT_INTERRUPT_METHOD == 2)
+    *lock = INTCON;
+    INTCON &= (0x1u << 6);                        /* Turn off PEIE interrupts */
+#elif (PORT_INTERRUPT_METHOD == 3)
+    *lock = INTCON;
+    INTCON &= (0x3u << 6);               /* Turn-off GIEH and GIEL interrupts */
+#endif
 }
 
 
@@ -65,7 +75,13 @@ static inline void nc_isr_lock_save(
 static inline void nc_isr_unlock(
     nc_isr_lock *               lock)
 {
-    INTCONbits.GIE = *lock;
+#if (PORT_INTERRUPT_METHOD == 1)
+    INTCON |= (*lock & (0x1u << 7));                       /* Restore GIE bit */
+#elif (PORT_INTERRUPT_METHOD == 2)
+    INTCON |= (*lock & (0x1u << 6));                      /* Restore PEIE bit */
+#elif (PORT_INTERRUPT_METHOD == 2)
+    INTCON |= (*lock & (0x3u << 6));            /* Restore GIEH and GIEL bits */
+#endif
 }
 
 
