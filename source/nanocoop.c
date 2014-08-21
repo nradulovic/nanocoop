@@ -76,7 +76,8 @@ struct nc_bitmap
 
 /**@brief       Set a bit corresponding to the the given priority
  */
-static inline void bitmap_set(
+static inline 
+void bitmap_set(
     struct nc_bitmap *          bitmap,
     uint_fast8_t                priority);
 
@@ -84,7 +85,8 @@ static inline void bitmap_set(
 
 /**@brief       Clear a bit corresponding to the the given priority
  */
-static inline void bitmap_clear(
+static inline 
+void bitmap_clear(
     struct nc_bitmap *          bitmap,
     uint_fast8_t                priority);
 
@@ -92,7 +94,8 @@ static inline void bitmap_clear(
 
 /**@brief       Get the highest set bit priority level
  */
-static inline uint_fast8_t bitmap_get_highest(
+static inline 
+uint_fast8_t bitmap_get_highest(
     const struct nc_bitmap *    bitmap);
 
 
@@ -102,7 +105,8 @@ static inline uint_fast8_t bitmap_get_highest(
  * @retval      true  - no bit is set
  * @retval      false - at least one bit is set
  */
-static inline bool bitmap_is_empty(
+static inline 
+bool bitmap_is_empty(
     const struct nc_bitmap *    bitmap);
 
 /*=======================================================  LOCAL VARIABLES  ==*/
@@ -128,7 +132,8 @@ static struct nc_bitmap   g_bitmap;
 /*============================================  LOCAL FUNCTION DEFINITIONS  ==*/
 
 
-static inline void bitmap_set(
+static inline 
+void bitmap_set(
     struct nc_bitmap *          bitmap,
     uint_fast8_t                priority)
 {
@@ -148,7 +153,8 @@ static inline void bitmap_set(
 
 
 
-static inline void bitmap_clear(
+static inline 
+void bitmap_clear(
     struct nc_bitmap *          bitmap,
     uint_fast8_t                priority)
 {
@@ -173,7 +179,8 @@ static inline void bitmap_clear(
 
 
 
-static inline uint_fast8_t bitmap_get_highest(
+static inline 
+uint_fast8_t bitmap_get_highest(
     const struct nc_bitmap *    bitmap)
 {
 #if   (CONFIG_NC_NUM_OF_PRIO_LEVELS > NCPU_DATA_WIDTH)
@@ -195,7 +202,8 @@ static inline uint_fast8_t bitmap_get_highest(
 
 
 
-static inline bool bitmap_is_empty(
+static inline 
+bool bitmap_is_empty(
     const struct nc_bitmap *    bitmap)
 {
 #if   (CONFIG_NC_NUM_OF_PRIO_LEVELS > NCPU_DATA_WIDTH)
