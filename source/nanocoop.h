@@ -40,7 +40,7 @@
  *              Minor version number is defined by 15 -  8 bits.
  *              Major version number is defined by 23 - 16 bits.
  */
-#define NC_VERSION                      0x010100
+#define NC_VERSION                      0x010101
 
 /*------------------------------------------------------  C++ extern begin  --*/
 #ifdef __cplusplus
