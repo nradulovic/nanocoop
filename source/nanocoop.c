@@ -71,12 +71,19 @@ struct nc_bitmap
     nc_cpu_reg                  level[BITMAP_GROUPS];
 };
 
+struct nc_context
+{
+    struct nc_bitmap            bitmap;
+    struct nc_thread *          current;
+    struct nc_thread *          ready[CONFIG_NC_NUM_OF_PRIO_LEVELS];
+};
+
 /*=============================================  LOCAL FUNCTION PROTOTYPES  ==*/
 
 
 /**@brief       Set a bit corresponding to the the given priority
  */
-static inline 
+static inline
 void bitmap_set(
     struct nc_bitmap *          bitmap,
     uint_fast8_t                priority);
@@ -85,7 +92,7 @@ void bitmap_set(
 
 /**@brief       Clear a bit corresponding to the the given priority
  */
-static inline 
+static inline
 void bitmap_clear(
     struct nc_bitmap *          bitmap,
     uint_fast8_t                priority);
@@ -94,7 +101,7 @@ void bitmap_clear(
 
 /**@brief       Get the highest set bit priority level
  */
-static inline 
+static inline
 uint_fast8_t bitmap_get_highest(
     const struct nc_bitmap *    bitmap);
 
@@ -105,34 +112,28 @@ uint_fast8_t bitmap_get_highest(
  * @retval      true  - no bit is set
  * @retval      false - at least one bit is set
  */
-static inline 
+static inline
 bool bitmap_is_empty(
     const struct nc_bitmap *    bitmap);
 
 /*=======================================================  LOCAL VARIABLES  ==*/
 
+#if (CONFIG_NC_NUM_OF_THREADS != 0)
 /**@brief       Pool memory for task structures which are allocated through
  *              nc_thread_create() function.
  */
 static struct nc_thread   g_threads[CONFIG_NC_NUM_OF_THREADS];
+#endif
 
-/**@brief       Pointer array to ready tasks in the system
+/**@brief       Scheduler current context
  */
-static struct nc_thread * g_ready[CONFIG_NC_NUM_OF_PRIO_LEVELS];
-
-/**@brief       Pointer to the currently executed task
- */
-static struct nc_thread * g_current;
-
-/**@brief       Bitmap which allows to quickly select which ready task to run
- */
-static struct nc_bitmap   g_bitmap;
+static struct nc_context  g_context;
 
 /*======================================================  GLOBAL VARIABLES  ==*/
 /*============================================  LOCAL FUNCTION DEFINITIONS  ==*/
 
 
-static inline 
+static inline
 void bitmap_set(
     struct nc_bitmap *          bitmap,
     uint_fast8_t                priority)
@@ -153,7 +154,7 @@ void bitmap_set(
 
 
 
-static inline 
+static inline
 void bitmap_clear(
     struct nc_bitmap *          bitmap,
     uint_fast8_t                priority)
@@ -179,7 +180,7 @@ void bitmap_clear(
 
 
 
-static inline 
+static inline
 uint_fast8_t bitmap_get_highest(
     const struct nc_bitmap *    bitmap)
 {
@@ -202,7 +203,7 @@ uint_fast8_t bitmap_get_highest(
 
 
 
-static inline 
+static inline
 bool bitmap_is_empty(
     const struct nc_bitmap *    bitmap)
 {
@@ -234,23 +235,31 @@ nc_thread * nc_thread_create(
     nc_isr_lock                 isr_context;
     nc_thread *                 new_thread;
 
-    new_thread = NULL;
     nc_isr_lock_save(&isr_context);
+#if (CONFIG_NC_NUM_OF_THREADS != 0)
+    new_thread = NULL;
 
-    for (itr = 0; itr < CONFIG_NC_NUM_OF_THREADS; itr++) {   /* Find empty slot */
+    for (itr = 0; itr < CONFIG_NC_NUM_OF_THREADS; itr++) { /* Find empty slot */
         if (g_threads[itr].next == NULL) {
-            new_thread           = &g_threads[itr];    /* Initialize new task */
-            new_thread->next     = new_thread;   /* Init linked list pointers */
-            new_thread->prev     = new_thread;
-            new_thread->fn       = fn;
-            new_thread->stack    = stack;
-            new_thread->priority = priority;
-            new_thread->ref      = 0u;
+            new_thread = &g_threads[itr];              /* Initialize new task */
 
             break;
         }
     }
+#else
+    (void)itr;
+    new_thread = malloc(sizeof(nc_thread));
+#endif
     nc_isr_unlock(&isr_context);
+
+    if (new_thread != NULL) {
+        new_thread->next     = new_thread;       /* Init linked list pointers */
+        new_thread->prev     = new_thread;
+        new_thread->fn       = fn;
+        new_thread->stack    = stack;
+        new_thread->priority = priority;
+        new_thread->ref      = 0u;
+    }
 
     return (new_thread);
 }
@@ -259,9 +268,13 @@ nc_thread * nc_thread_create(
 
 void nc_thread_destroy(
     nc_thread *                 thread)
-
+{
     nc_thread_block(thread);
+#if (CONFIG_NC_NUM_OF_THREADS != 0)
     thread->next = NULL;                           /* Mark the thread as free */
+#else
+    free(thread);
+#endif
 }
 
 
@@ -280,11 +293,11 @@ void nc_thread_ready(
 
         priority  = thread->priority;
 
-        if (g_ready[priority] == NULL) { /* Is this the first thread in list? */
-            g_ready[priority] = thread;            /* Mark this level as used */
-            bitmap_set(&g_bitmap, priority);
+        if (g_context.ready[priority] == NULL) { /* Is this the first thread? */
+            g_context.ready[priority] = thread;    /* Mark this level as used */
+            bitmap_set(&g_context.bitmap, priority);
         } else {
-            nc_thread *         sentinel = g_ready[priority];
+            nc_thread *         sentinel = g_context.ready[priority];
 
             thread->next         = sentinel;
             thread->prev         = sentinel->prev;
@@ -317,9 +330,9 @@ void nc_thread_block(
         if (thread->next == thread) {     /* Is this the last thread in list? */
             uint_fast8_t        priority;
 
-            priority          = thread->priority;
-            g_ready[priority] = NULL;
-            bitmap_clear(&g_bitmap, priority);
+            priority                  = thread->priority;
+            g_context.ready[priority] = NULL;
+            bitmap_clear(&g_context.bitmap, priority);
         } else {
             thread->next->prev = thread->prev;
             thread->prev->next = thread->next;
@@ -332,7 +345,7 @@ void nc_thread_block(
 
 nc_thread * nc_thread_get_current(void)
 {
-    return (g_current);
+    return (g_context.current);
 }
 
 
@@ -357,19 +370,22 @@ void nc_schedule(void)
 
     nc_isr_lock_save(&isr_context);
 
-    while (!bitmap_is_empty(&g_bitmap)) {      /* While there are ready tasks */
+                                     /* While there are ready tasks in system */
+    while (!bitmap_is_empty(&g_context.bitmap)) {
         struct nc_thread *      new_thread;
         uint_fast8_t            priority;
-
-        priority = bitmap_get_highest(&g_bitmap);    /* Get the highest level */
-        new_thread        = g_ready[priority];          /* Fetch the new task */
-        g_current         = new_thread;
-        g_ready[priority] = new_thread->next;  /* Round-robin for other tasks */
+                                                     /* Get the highest level */
+        priority = bitmap_get_highest(&g_context.bitmap);
+                                                        /* Fetch the new task */
+        new_thread                = g_context.ready[priority];
+        g_context.current         = new_thread;
+                                               /* Round-robin for other tasks */
+        g_context.ready[priority] = new_thread->next;
         nc_isr_unlock(&isr_context);
         new_thread->fn(new_thread->stack);              /* Execute the thread */
         nc_isr_lock_save(&isr_context);
     }
-    g_current = NULL;           /* We are exiting the loop, no task is active */
+    g_context.current = NULL;   /* We are exiting the loop, no task is active */
     nc_isr_unlock(&isr_context);
 }
 
