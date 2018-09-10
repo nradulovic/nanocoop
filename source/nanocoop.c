@@ -231,15 +231,14 @@ nc_thread * nc_thread_create(
     void *                      stack,
     uint_fast8_t                priority)
 {
-    uint16_t                    itr;
     nc_isr_lock                 isr_context;
     nc_thread *                 new_thread;
 
     nc_isr_lock_save(&isr_context);
 #if (CONFIG_NC_NUM_OF_THREADS != 0)
     new_thread = NULL;
-
-    for (itr = 0; itr < CONFIG_NC_NUM_OF_THREADS; itr++) { /* Find empty slot */
+                                                          /* Find empty slot */
+    for (uint16_t itr = 0; itr < CONFIG_NC_NUM_OF_THREADS; itr++) { 
         if (g_threads[itr].next == NULL) {
             new_thread = &g_threads[itr];              /* Initialize new task */
 
@@ -247,7 +246,6 @@ nc_thread * nc_thread_create(
         }
     }
 #else
-    (void)itr;
     new_thread = malloc(sizeof(nc_thread));
 #endif
     nc_isr_unlock(&isr_context);
